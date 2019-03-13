@@ -76,6 +76,74 @@ matchData$referee <- substr(matchData$referee,1,nchar(matchData$referee)-6)
 matchData$assistant1 <- substr(matchData$assistant1,1,nchar(matchData$assistant1)-6)
 matchData$assistant2 <-  substr(matchData$assistant2,1,nchar(matchData$assistant2)-6)
 
+# Duplicate data frame to separate home and away teams
+homeDF <- matchData
+awayDF <- matchData
+
+# Get team name for each game for home and away teams
+homeDF$team <- homeDF$homeTeam
+awayDF$team <- awayDF$awayTeam
+
+# Get opponent name for each game for home and away teams
+homeDF$opponent <- homeDF$awayTeam
+awayDF$opponent <- awayDF$homeTeam
+
+# Get home or away
+homeDF$homeOrAway <- "home"
+awayDF$homeOrAway <- "away"
+
+# Remove home team and away team columns
+homeDF <- homeDF[ , -which(names(homeDF) %in% c("homeTeam", "awayTeam"))]
+awayDF <- awayDF[ , -which(names(awayDF) %in% c("homeTeam", "awayTeam"))]
+
+# iterate over home df and get results
+for(i in 1:length(homeDF$team)){
+  if(homeDF$hometeamGoals[i] > homeDF$awayTeamGoals[i]){
+    homeDF$result[i] <- "win"
+  }else if(homeDF$hometeamGoals[i] < homeDF$awayTeamGoals[i]){
+    homeDF$result[i] <- "loss"
+  }else{
+    homeDF$result[i] <- "draw"
+  }
+}
+
+# iterate over away df and get results
+for(i in 1:length(awayDF$team)){
+  if(awayDF$awayTeamGoals[i] > awayDF$hometeamGoals[i]){
+    awayDF$result[i] <- "win"
+  }else if(awayDF$awayTeamGoals[i] < awayDF$hometeamGoals[i]){
+    awayDF$result[i] <- "loss"
+  }else{
+    awayDF$result[i] <- "draw"
+  }
+}
+
+# Rename goals columns
+names(homeDF)[names(homeDF) == 'hometeamGoals'] <- 'goalsFor'
+names(homeDF)[names(homeDF) == 'awayTeamGoals'] <- 'goalsAgainst'
+names(homeDF)[names(homeDF) == 'halfTimeHomeGoals'] <- 'goalsForHalfTime'
+names(homeDF)[names(homeDF) == 'halfTimeAwayGoals'] <- 'goalsAgainstHalfTime'
+
+names(awayDF)[names(awayDF) == 'awayTeamGoals'] <- 'goalsFor'
+names(awayDF)[names(awayDF) == 'hometeamGoals'] <- 'goalsAgainst'
+names(awayDF)[names(awayDF) == 'halfTimeAwayGoals'] <- 'goalsForHalfTime'
+names(awayDF)[names(awayDF) == 'halfTimeHomeGoals'] <- 'goalsAgainstHalfTime'
+
+# combine homeDF and awayDF
+df <- rbind(homeDF, awayDF)
+
+# get correct data types
+df$year <- as.factor(df$year)
+df$time <- as.factor(df$year)
+df$referee <- as.factor(df$referee)
+df$assistant1 <- as.factor(df$assistant1)
+df$assistant2 <- as.factor(df$assistant2)
+df$refereeNationality <- as.factor(df$refereeNationality)
+df$assistant1Nationality <- as.factor(df$assistant1Nationality)
+df$assistant2Nationality <- as.factor(df$assistant2Nationality)
+df$homeOrAway <- as.factor(df$homeOrAway)
+df$result <- as.factor(df$result)
+
 ########################################################################
 ## Data Visualization
 ########################################################################
@@ -83,6 +151,22 @@ matchData$assistant2 <-  substr(matchData$assistant2,1,nchar(matchData$assistant
 ########################################################################
 ## Association Rules
 ########################################################################
+
+# get df for association rules
+ruleDF <- df
+
+# set all but attendance as factor
+ruleDF$goalsAgainst <- as.factor(ruleDF$goalsAgainst)
+ruleDF$goalsFor <- as.factor(ruleDF$goalsFor)
+ruleDF$goalsAgainstHalfTime <- as.factor(ruleDF$goalsAgainstHalfTime)
+ruleDF$goalsForHalfTime <- as.factor(ruleDF$goalsForHalfTime)
+
+# discretize attendance variable
+ruleDF$attendance <- as.factor(ifelse(ruleDF$attendance <= 30000,'low',ifelse(ruleDF$attendance <= 61381, 'average', 'high')))
+
+#Get association rules
+rules <- apriori(ruleDF, parameter = list(conf = 0.99, maxlen = 2), control = list(verbose=F))
+arules::inspect(rules)
 
 ########################################################################
 ## k-Means Clustering
