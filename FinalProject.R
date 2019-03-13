@@ -58,14 +58,23 @@ for(row in matchData){
                                                                   gregexpr("\\(.*?\\)", 
                                                                   matchData$referee[i]))[[1]])
   matchData$assistant1Nationality[i] <- gsub("[\\(\\)]", "", regmatches(matchData$assistant1[i], 
-                                                                     gregexpr("\\(.*?\\)", 
-                                                                              matchData$assistant1[i]))[[1]])
+                                                                  gregexpr("\\(.*?\\)", 
+                                                                  matchData$assistant1[i]))[[1]])
   matchData$assistant2Nationality[i] <- gsub("[\\(\\)]", "", regmatches(matchData$assistant2[i], 
-                                                                     gregexpr("\\(.*?\\)", 
-                                                                              matchData$assistant2[i]))[[1]])
+                                                                  gregexpr("\\(.*?\\)", 
+                                                                  matchData$assistant2[i]))[[1]])
   i <- i + 1
 }
 
+# convert officials to char type
+matchData$referee <- as.character(matchData$referee)
+matchData$assistant1 <- as.character(matchData$assistant1)
+matchData$assistant2 <- as.character(matchData$assistant2)
+
+# remove nationality from officials names
+matchData$referee <- substr(matchData$referee,1,nchar(matchData$referee)-6)
+matchData$assistant1 <- substr(matchData$assistant1,1,nchar(matchData$assistant1)-6)
+matchData$assistant2 <-  substr(matchData$assistant2,1,nchar(matchData$assistant2)-6)
 
 ########################################################################
 ## Data Visualization
