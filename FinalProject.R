@@ -20,7 +20,6 @@ library(arules)
 setwd("~/Desktop/IST 707/IST707FinalProject")
 
 # Load in the data
-worldCupData <- read.csv("WorldCups.csv")
 matchData <- read.csv("WorldCupMatches.csv")
 
 
@@ -40,7 +39,7 @@ matchData$Datetime <- str_extract(matchData$Datetime, '[0-9][0-9]:[0-9][0-9]')
 # Change column names in match data
 colnames(matchData) <- c("year", "time", "stage", "stadium", "city", "homeTeam", "hometeamGoals", "awayTeamGoals", 
                          "awayTeam", "winConditions", "attendance", "halfTimeHomeGoals", "halfTimeAwayGoals", 
-                         "referee", "assistant1", "assistant2")
+                         "referee", "assistant1", "assistant2", "matchWin", "winPlace", "winWin")
 
 # Check for NA in match data
 summary(complete.cases(matchData))
@@ -132,9 +131,71 @@ names(awayDF)[names(awayDF) == 'halfTimeHomeGoals'] <- 'goalsAgainstHalfTime'
 # combine homeDF and awayDF
 df <- rbind(homeDF, awayDF)
 
+# add empty host column to df
+df$host <- ""
+
+# add host nation to each world cup
+for(i in 1:length(df$team)){
+  if(df$year[i] == 1930){
+    df$host[i] <- "Uruguay"
+  }else if(df$year[i] == 1934){
+    df$host[i] <- "Italy"
+  }else if(df$year[i] == 1938){
+    df$host[i] <- "France"
+  }else if(df$year[i] == 1950){
+    df$host[i] <- "Brazil"
+  }else if(df$year[i] == 1954){
+    df$host[i] <- "Switzerland"
+  }else if(df$year[i] == 1958){
+    df$host[i] <- "Sweden"
+  }else if(df$year[i] == 1962){
+    df$host[i] <- "Chile"
+  }else if(df$year[i] == 1966){
+    df$host[i] <- "England"
+  }else if(df$year[i] == 1970){
+    df$host[i] <- "Mexico"
+  }else if(df$year[i] == 1974){
+    df$host[i] <- "Germany"
+  }else if(df$year[i] == 1978){
+    df$host[i] <- "Argentina"
+  }else if(df$year[i] == 1982){
+    df$host[i] <- "Spain"
+  }else if(df$year[i] == 1986){
+    df$host[i] <- "Mexico"
+  }else if(df$year[i] == 1990){
+    df$host[i] <- "Italy"
+  }else if(df$year[i] == 1994){
+    df$host[i] <- "United States"
+  }else if(df$year[i] == 1998){
+    df$host[i] <- "France"
+  }else if(df$year[i] == 2002){
+    df$host[i] <- "Japan and South Korea"
+  }else if(df$year[i] == 2006){
+    df$host[i] <- "Germany"
+  }else if(df$year[i] == 2010){
+    df$host[i] <- "South Africa"
+  }else if(df$year[i] == 2014){
+    df$host[i] <- "Brazil"
+  }else{
+    df$host[i] <- "Russia"
+  }
+}
+
+# add whether each country was host nation
+for(i in 1:length(df$team)){
+  if(df$host[i] == df$team[i]){
+    df$isHostCountry[i] <- "yes"
+  }else{
+    df$isHostCountry[i] <- "no"
+  }
+}
+
+# remove city and stadium columns from df (redundant with host attributes)
+df <- df[ , -which(names(homeDF) %in% c("stadium", "city"))]
+
 # get correct data types
 df$year <- as.factor(df$year)
-df$time <- as.factor(df$year)
+df$time <- as.factor(df$time)
 df$referee <- as.factor(df$referee)
 df$assistant1 <- as.factor(df$assistant1)
 df$assistant2 <- as.factor(df$assistant2)
@@ -143,6 +204,14 @@ df$assistant1Nationality <- as.factor(df$assistant1Nationality)
 df$assistant2Nationality <- as.factor(df$assistant2Nationality)
 df$homeOrAway <- as.factor(df$homeOrAway)
 df$result <- as.factor(df$result)
+df$winPlace <- as.factor(df$winPlace)
+df$winWin <- as.factor(df$winWin)
+df$host <- as.factor(df$host)
+df$isHostCountry <- as.factor(df$isHostCountry)
+df$result <- as.factor(df$result)
+
+# remove unnecessary columns
+df <- df[ , -which(names(df) %in% c("referee", "assistant1", "assistant2", "matchWin", "team", "opponent"))]
 
 ########################################################################
 ## Data Visualization
@@ -172,26 +241,166 @@ arules::inspect(rules)
 ## k-Means Clustering
 ########################################################################
 
-########################################################################
-## Cosine Similarity
-########################################################################
+#Set seed
+set.seed(474)
+#Set number of clusters
+k <- 2
+kmeansResult <- kmeans(df, k)
+
+#Observe clusters
+(kmeansResult$cluster)
+
+plot <- fviz_cluster(kmeansResult, df)
+plot
 
 ########################################################################
 ## Decision Trees
 ########################################################################
 
+# Set the random seed
+set.seed(474)
+# Split data set
+trainRows <- sample(1:nrow(df),0.80*nrow(df))
+train <- df[trainRows, ]
+test <- df[-trainRows, ]
+
+#create a function to display results of decision tree
+get_results <- function(clf){
+  #get predictions from the tree
+  predictions <- predict(clf, test, type = "class")
+  #visualize the tree
+  fancyRpartPlot(clf)
+  #Get cross validation table
+  cv <- table(predictions, test$winWin)
+  print(cv)
+  #Get accuracy of model
+  accuracy <- ((cv[1,1] + cv[2,2])/length(predictions))
+  print(accuracy)
+}
+
+#Create a function to prune tree
+prune_tree <- function(clf){
+  ptree<- prune(clf, cp= clf$cptable[which.min(clf$cptable[,"xerror"]),"CP"])
+  get_results(ptree)
+}
+
+formula <- formula(winWin~., data = train)
+minSplit <- 1
+myCp = -1
+
+#Create a function to easily test different tunings on the tree
+get_tree <- function(formula, minSplit, myCp){
+  myClf <- rpart(formula, data = train, method = "class", control = c(minsplit = minSplit, cp = myCp))
+  print("Full Tree Results")
+  get_results(clf = myClf)
+  print("Pruned Tree Results")
+  prune_tree(clf = myClf)
+}
+
+#fit the decision tree and view results
+get_tree(formula, minSplit, myCp)
+
+
 ########################################################################
 ## Naive Bayes
 ########################################################################
+# Set the random seed
+set.seed(474)
+# Split data set
+trainRows <- sample(1:nrow(df),0.80*nrow(df))
+train <- df[trainRows, ]
+test <- df[-trainRows, ]
+
+NB_object<- naive_bayes(winWin~., data=train)
+NB_prediction<-predict(NB_object, test[ , -which(names(test) %in% c("winWin"))], type = c("class"))
+head(predict(NB_object, test, type = "class"))
+table(NB_prediction,test$winWin)
 
 ########################################################################
 ## Random Forest
 ########################################################################
 
+# Set the random seed
+set.seed(474)
+# Split data set
+trainRows <- sample(1:nrow(df),0.80*nrow(df))
+train <- df[trainRows, ]
+test <- df[-trainRows, ]
+
+n <- names(train)
+f <- as.formula(paste("winWin ~", paste(n[!n %in% "winWin"], collapse = " + ")))
+
+# Set up RF
+rf <- randomForest(f, data = train)
+print(rf)
+# Make predictions
+predictions <- predict(rf, test) 
+cv = (table(predictions, test$winWin))
+print(cv)
+accuracy <- ((cv[1,1] + cv[2,2])/length(test$winWin))
+print(accuracy)
+
 ########################################################################
 ## k-Nearest Neighbor
 ########################################################################
+# copy df
+dfOrig <- df
+
+# get all numeric variables
+df$year <- as.numeric(df$year)
+df$time <- as.numeric(df$time)
+df$stage <- as.numeric(df$stage)
+df$winWin <- as.numeric(df$winWin)
+df$winPlace <- as.numeric(df$winPlace)
+df$refereeNationality <- as.numeric(df$refereeNationality)
+df$assistant1Nationality <- as.numeric(df$assistant1Nationality)
+df$assistant2Nationality <- as.numeric(df$assistant2Nationality)
+df$homeOrAway <- as.numeric(df$homeOrAway)
+df$result <- as.numeric(df$result)
+df$host <- as.numeric(df$host)
+df$isHostCountry <- as.numeric(df$isHostCountry)
+
+# Set the random seed
+set.seed(474)
+# Split data set
+trainRows <- sample(1:nrow(df),0.80*nrow(df))
+train <- df[trainRows, ]
+test <- df[-trainRows, ]
+
+
+# Set k
+k <- 4
+# Fit the model
+kNN_fit <- class::knn(train=train, test=test, cl=train$winWin, k = k, prob=TRUE)
+print(kNN_fit)
+
+## Check the classification accuracy
+cv = (table(kNN_fit, test$winWin))
+print(cv)
+accuracy <- ((cv[1,1] + cv[2,2])/length(test$winWin))
+print(accuracy)
+
 
 ########################################################################
 ## Support Vector Machine
 ########################################################################
+df <- dfOrig
+
+# Set random seed
+set.seed(474)
+# Split data set
+trainRows <- sample(1:nrow(df),0.80*nrow(df))
+train <- df[trainRows, ]
+test <- df[-trainRows, ]
+# Set up SVM
+clf <- svm(winWin~., data=train, kernel="radial", scale=FALSE)
+print(clf)
+
+# Get Predictions
+(predictions <- predict(clf, test, type="class"))
+
+# Get confusion matrix
+(cv <- table(predictions, test$winWin))
+print(cv)
+accuracy <- ((cv[1,1] + cv[2,2])/length(test$winWin))
+print(accuracy)
