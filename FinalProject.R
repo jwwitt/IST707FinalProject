@@ -210,9 +210,6 @@ df$host <- as.factor(df$host)
 df$isHostCountry <- as.factor(df$isHostCountry)
 df$result <- as.factor(df$result)
 
-# remove unnecessary columns
-df <- df[ , -which(names(df) %in% c("referee", "assistant1", "assistant2", "matchWin", "team", "opponent"))]
-
 ########################################################################
 ## Data Visualization
 ########################################################################
@@ -234,12 +231,15 @@ ruleDF$goalsForHalfTime <- as.factor(ruleDF$goalsForHalfTime)
 ruleDF$attendance <- as.factor(ifelse(ruleDF$attendance <= 30000,'low',ifelse(ruleDF$attendance <= 61381, 'average', 'high')))
 
 #Get association rules
-rules <- apriori(ruleDF, parameter = list(conf = 0.99, maxlen = 2), control = list(verbose=F))
+rules <- apriori(ruleDF, parameter = list(conf = 0.3),appearance = list(default="lhs",rhs="result=win"),control = list(verbose=F))
 arules::inspect(rules)
 
 ########################################################################
 ## k-Means Clustering
 ########################################################################
+
+# remove unnecessary columns
+df <- df[ , -which(names(df) %in% c("referee", "assistant1", "assistant2", "matchWin", "team", "opponent"))]
 # copy df
 dfOrig <- df
 
