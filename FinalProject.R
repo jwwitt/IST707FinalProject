@@ -240,7 +240,22 @@ arules::inspect(rules)
 ########################################################################
 ## k-Means Clustering
 ########################################################################
+# copy df
+dfOrig <- df
 
+# get all numeric variables
+df$year <- as.numeric(df$year)
+df$time <- as.numeric(df$time)
+df$stage <- as.numeric(df$stage)
+df$winWin <- as.numeric(df$winWin)
+df$winPlace <- as.numeric(df$winPlace)
+df$refereeNationality <- as.numeric(df$refereeNationality)
+df$assistant1Nationality <- as.numeric(df$assistant1Nationality)
+df$assistant2Nationality <- as.numeric(df$assistant2Nationality)
+df$homeOrAway <- as.numeric(df$homeOrAway)
+df$result <- as.numeric(df$result)
+df$host <- as.numeric(df$host)
+df$isHostCountry <- as.numeric(df$isHostCountry)
 #Set seed
 set.seed(474)
 #Set number of clusters
@@ -256,6 +271,7 @@ plot
 ########################################################################
 ## Decision Trees
 ########################################################################
+df <- dfOrig
 
 # Set the random seed
 set.seed(474)
