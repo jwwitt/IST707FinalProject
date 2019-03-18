@@ -15,13 +15,15 @@ library(rattle)
 library(rpart.plot)
 library(ggplot2)
 library(arules)
+library(kknn)
+library(plyr)
 
 # Set working directory
-setwd("~/Desktop/IST 707/IST707FinalProject")
+setwd("C:\\Users\\tmoorman\\Documents\\R\\IST707FinalProject-master")
 
 # Load in the data
 matchData <- read.csv("WorldCupMatches.csv")
-
+WorldCupData <- read.csv("WorldCups.csv")
 
 ########################################################################
 ## Data Cleaning
@@ -210,9 +212,29 @@ df$host <- as.factor(df$host)
 df$isHostCountry <- as.factor(df$isHostCountry)
 df$result <- as.factor(df$result)
 
+# remove unnecessary columns
+df <- df[ , -which(names(df) %in% c("referee", "assistant1", "assistant2", "matchWin", "team", "opponent"))]
+
 ########################################################################
 ## Data Visualization
 ########################################################################
+
+#Exploring trends in match results
+plot(df$stage, df$attendance, col="red")
+plot(df$isHostCountry, df$result) #much more likely to win if host country == yes
+plot(df$isHostCountry, df$winPlace)
+plot(df$isHostCountry, df$winWin)
+plot(df$homeOrAway, df$result)
+plot(df$result, df$goalsFor)
+
+#Exploring Financial Results
+plot(WorldCupData$year, WorldCupData$fifarev)
+plot(WorldCupData$year, WorldCupData$hostcost)
+plot(WorldCupData$year, WorldCupData$cost_inf)
+plot(WorldCupData$year, WorldCupData$rev_inf)
+plot(WorldCupData$year, WorldCupData$prizes)
+WorldCupData$prizes_inf - WorldCupData$hostcost
+
 
 ########################################################################
 ## Association Rules
@@ -231,15 +253,12 @@ ruleDF$goalsForHalfTime <- as.factor(ruleDF$goalsForHalfTime)
 ruleDF$attendance <- as.factor(ifelse(ruleDF$attendance <= 30000,'low',ifelse(ruleDF$attendance <= 61381, 'average', 'high')))
 
 #Get association rules
-rules <- apriori(ruleDF, parameter = list(conf = 0.3),appearance = list(default="lhs",rhs="result=win"),control = list(verbose=F))
+rules <- apriori(ruleDF, parameter = list(conf = 0.99, maxlen = 2), control = list(verbose=F))
 arules::inspect(rules)
 
 ########################################################################
 ## k-Means Clustering
 ########################################################################
-
-# remove unnecessary columns
-df <- df[ , -which(names(df) %in% c("referee", "assistant1", "assistant2", "matchWin", "team", "opponent"))]
 # copy df
 dfOrig <- df
 
@@ -396,6 +415,20 @@ print(cv)
 accuracy <- ((cv[1,1] + cv[2,2])/length(test$winWin))
 print(accuracy)
 
+#visualizaing KNN
+plot(kNN_fit)
+plot.df <- data.frame(test, predicted = kNN_fit)
+plot.df1 = data.frame(x = plot.df$isHostCountry, 
+                      y = plot.df$winWin, 
+                      predicted = plot.df$predicted)
+
+find_hull = function(df) df[chull(df$x, df$y), ]
+boundary = ddply(plot.df1, .variables = "predicted", .fun = find_hull)
+
+ggplot(plot.df, aes(isHostCountry, winWin, color = predicted, fill = predicted)) + 
+  geom_point(size = 5) + 
+  geom_polygon(data = boundary, aes(x,y), alpha = 0.5)
+
 
 ########################################################################
 ## Support Vector Machine
@@ -420,3 +453,6 @@ print(clf)
 print(cv)
 accuracy <- ((cv[1,1] + cv[2,2])/length(test$winWin))
 print(accuracy)
+
+#Visualizing SVM
+plot(clf, train, goalsFor ~ goalsAgainst)
